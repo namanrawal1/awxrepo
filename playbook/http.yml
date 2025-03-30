@@ -13,6 +13,11 @@
         name: httpd  # Use 'apache2' for Ubuntu/Debian
         state: started
         enabled: yes
+    - name: Stop and Disable firewalld
+      service:
+        name: firewalld  
+        state: stopped
+        enabled: no
 
     - name: Ensure index.html is accessible
       copy:
