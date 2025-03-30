@@ -1,0 +1,82 @@
+- name: Setup Terraform Enterprise (TFE) without License for Testing
+  hosts: all
+  become: yes
+  become_user: root
+  vars:
+    tfe_version: "latest"
+    tfe_data_dir: "/opt/tfe/data"
+    tfe_hostname: "tfe.example.com"
+    tfe_container_name: "terraform-enterprise"
+    docker_network: "tfe_network"
+    docker_compose_path: "/opt/tfe/docker-compose.yml"
+  tasks:
+
+    - name: Install required dependencies
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Install Docker
+      shell: |
+        curl -fsSL https://get.docker.com | bash
+      args:
+        creates: /usr/bin/docker
+
+    - name: Ensure Docker service is running
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Install Docker Compose
+      shell: |
+        curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        chmod +x /usr/local/bin/docker-compose
+        ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
+      args:
+        creates: /usr/local/bin/docker-compose
+
+    - name: Create Terraform Enterprise data directory
+      file:
+        path: "{{ tfe_data_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Create Docker Compose file for Terraform Enterprise (No License)
+      copy:
+        dest: "{{ docker_compose_path }}"
+        content: |
+          version: '3'
+          services:
+            terraform:
+              image: hashicorp/terraform
+              container_name: "{{ tfe_container_name }}"
+              restart: unless-stopped
+              volumes:
+                - "{{ tfe_data_dir }}:/var/lib/tfe"
+              networks:
+                - "{{ docker_network }}"
+          networks:
+            "{{ docker_network }}":
+              driver: bridge
+
+    - name: Start Terraform Enterprise container
+      shell: "docker compose -f {{ docker_compose_path }} up -d"
+      args:
+        chdir: "/opt/tfe"
+
+    - name: Verify Terraform Enterprise is running
+      shell: "docker ps | grep {{ tfe_container_name }}"
+      register: docker_ps
+      changed_when: false
+
+    - debug:
+        msg: "Terraform Enterprise is running (without license): {{ docker_ps.stdout }}"
+

@@ -1,0 +1,23 @@
+- name: Install and configure HTTP service
+  hosts: all 
+  become: true
+  become_user: root
+  tasks:
+    - name: Install HTTP service
+      package:
+        name: httpd  # Use 'apache2' for Ubuntu/Debian
+        state: present
+
+    - name: Start and enable HTTP service
+      service:
+        name: httpd  # Use 'apache2' for Ubuntu/Debian
+        state: started
+        enabled: yes
+
+    - name: Ensure index.html is accessible
+      copy:
+        content: "<h1>Welcome to the test web server</h1>"
+        dest: /var/www/html/index.html
+        mode: '0644'
+
+

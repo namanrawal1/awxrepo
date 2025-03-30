@@ -1,0 +1,16 @@
+- hosts: all
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Install available updates
+      yum:
+        name: '*'
+        state: latest
+        exclude: kernel*
+
+    - name: Fetch log files once the server is patched
+      fetch:
+        src: /var/log/yum.log  # Example log file path
+        dest: /var/log/ansible_patch/{{ inventory_hostname }}_access.log"  # Destination on the Ansible server
+        flat: yes
+        fail_on_missing: no

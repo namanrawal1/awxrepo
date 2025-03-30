@@ -1,0 +1,47 @@
+---
+- name: Health Check Playbook
+  hosts: all
+  gather_facts: no  # No need for full system facts, speeds up the playbook
+  tasks:
+
+    - name: Collect Health Metrics
+      shell: |
+        echo "Uptime: $(uptime -p)"
+        echo "Status: Healthy"  # You can customize the logic for "Healthy" status
+        echo "Elasticsearch: $(systemctl is-active elasticsearch || echo 'not installed')"
+        echo "Service2: $(systemctl is-active sshd || echo 'not installed')"
+      register: health_check_output
+
+    - name: Parse and Structure Health Data
+      set_fact:
+        health_data: >
+          {{
+            {
+              'server': inventory_hostname,
+              'uptime': health_check_output.stdout_lines[0].split(": ")[1] if 'Uptime:' in health_check_output.stdout_lines[0] else 'N/A',
+              'status': health_check_output.stdout_lines[1].split(": ")[1] if 'Status:' in health_check_output.stdout_lines[1] else 'N/A',
+              'elasticsearch': health_check_output.stdout_lines[2].split(": ")[1] if 'Elasticsearch:' in health_check_output.stdout_lines[2] else 'N/A',
+              'service2': health_check_output.stdout_lines[3].split(": ")[1] if 'Service2:' in health_check_output.stdout_lines[3] else 'N/A',
+            }
+          }}
+
+    - name: Append to a global list
+      set_fact:
+        health_data_list: "{{ health_data_list | default([]) + [health_data] }}"
+
+    - name: Print Combined Health Report for All Hosts
+      run_once: yes
+      debug:
+        msg: |
+          {{ "%-15s | %-15s | %-10s | %-15s | %-15s" | format("Server", "Uptime", "Status", "Elasticsearch", "Service2") }}
+          {{ "-" * 82 }}
+          {% for data in health_data_list %}
+          {{ "%-15s | %-15s | %-10s | %-15s | %-15s" | format(
+            data.server, 
+            data.uptime, 
+            data.status, 
+            data.elasticsearch, 
+            data.service2
+          ) }}
+          {% endfor %}
+

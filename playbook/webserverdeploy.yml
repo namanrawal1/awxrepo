@@ -1,0 +1,17 @@
+- hosts: all
+  become: true
+  tasks:
+    - name: Install httpd
+      dnf:
+        name: httpd
+        state: present
+    - name: copy file
+      copy: 
+        src: /opt/index.html
+        dest: /var/www/html/index.html
+
+    - name: Start web server
+      service:
+        name: httpd
+        state: started
+        enabled: true
